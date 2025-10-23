@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Journey Survey</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: 70vh;
+            overflow-y: auto;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            border-radius: 1rem 1rem 0 1rem;
+        }
+        .bot-message {
+            background-color: #f5f5f5;
+            border-radius: 1rem 1rem 1rem 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-3xl">
+        <h1 class="text-3xl font-bold text-center text-blue-600 mb-8">Career Journey Survey</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <!-- Chat messages container -->
+            <div id="chat-messages" class="chat-container p-4 space-y-4">
+                <!-- Messages will be added here by JavaScript -->
+            </div>
+            
+            <!-- Input area -->
+            <div class="border-t p-4 bg-gray-50">
+                <div class="flex space-x-2">
+                    <input type="text" id="user-input" 
+                           class="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Type your message here..."
+                           onkeypress="if(event.key === 'Enter') sendMessage()">
+                    <button onclick="sendMessage()" 
+                            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        Send
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">Type 'quit' or 'bye' to end the conversation</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        
+        // Initialize conversation with system message
+        let conversation = {
+            messages: [
+                {
+                    role: "assistant",
+                    content: "Hello! I'm your career survey assistant. I'd love to learn about your professional journey. Could you tell me what you currently do for work?"
+                }
+            ]
+        };
+
+        // Add initial bot message
+        document.addEventListener('DOMContentLoaded', () => {
+            addMessage('assistant', conversation.messages[0].content);
+        });
+
+        function addMessage(role, content) {
+            if (!content) return;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${role === 'user' ? 'user-message ml-auto' : 'bot-message'} p-4 max-w-3/4 w-fit mb-2`;
+            messageDiv.innerHTML = `<p>${content.replace(/\n/g, '<br>')}</p>`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Add to conversation if it's not already there
+            if (role === 'user' || !conversation.messages.some(m => m.role === role && m.content === content)) {
+                conversation.messages.push({ role, content });
+            }
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage('user', message);
+            userInput.value = '';
+            userInput.disabled = true;
+            
+            try {
+                // Show typing indicator
+                const typingIndicator = document.createElement('div');
+                typingIndicator.id = 'typing-indicator';
+                typingIndicator.className = 'bot-message p-4 max-w-3/4 w-fit mb-2';
+                typingIndicator.innerHTML = '<p>Typing...</p>';
+                chatMessages.appendChild(typingIndicator);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Send message to server
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: conversation.messages
+                    })
+                });
+
+                // Remove typing indicator
+                chatMessages.removeChild(typingIndicator);
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                
+                // Add bot's response to chat
+                if (data.response) {
+                    addMessage('assistant', data.response);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('assistant', "I'm sorry, I'm having trouble connecting to the server. Please try again later.");
+            } finally {
+                userInput.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        // Allow pressing Enter to send message
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        async function saveConversation() {
+            try {
+                await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(conversation)
+                });
+            } catch (error) {
+                console.error('Error saving conversation:', error);
+            }
+        }
+    </script>
+</body>
+</html>
