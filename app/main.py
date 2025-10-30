@@ -111,9 +111,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+# Mount static files (use absolute paths; guard if missing in prod)
+BASE_DIR = os.path.dirname(__file__)
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+else:
+    print(f"Warning: Static directory not found at {STATIC_DIR}, skipping mount.")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # Database setup
 DATABASE_URL = "sqlite:///./career_survey.db"
